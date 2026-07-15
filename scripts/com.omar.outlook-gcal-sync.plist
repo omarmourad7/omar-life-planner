@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.omar.outlook-gcal-sync</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/I744403/miscdev/omar-life-planner/scripts/sync-outlook-to-gcal.sh</string>
+    </array>
+    <key>StartInterval</key>
+    <integer>900</integer><!-- 900 seconds = 15 minutes -->
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/I744403/miscdev/omar-life-planner/scripts/sync-stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/I744403/miscdev/omar-life-planner/scripts/sync-stderr.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
+        <key>GOOGLE_CLIENT_ID</key>
+        <string>YOUR_CLIENT_ID</string>
+        <key>GOOGLE_CLIENT_SECRET</key>
+        <string>YOUR_CLIENT_SECRET</string>
+        <key>GOOGLE_REFRESH_TOKEN</key>
+        <string>YOUR_REFRESH_TOKEN</string>
+    </dict>
+</dict>
+</plist>
