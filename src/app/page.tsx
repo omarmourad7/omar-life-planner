@@ -6,8 +6,14 @@ import TaskForm from '@/components/TaskForm';
 import TaskCard from '@/components/TaskCard';
 import CategoryManager from '@/components/CategoryManager';
 import JsonImport from '@/components/JsonImport';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 
-type FilterType = 'all' | 'active' | 'completed' | string;
 type SortType = 'deadline' | 'priority' | 'status' | 'created';
 
 export default function Dashboard() {
@@ -16,12 +22,10 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [showCategories, setShowCategories] = useState(false);
-  const [filter, setFilter] = useState<FilterType>('all');
+  const [activeTab, setActiveTab] = useState('all');
   const [sort, setSort] = useState<SortType>('deadline');
   const [successMessage, setSuccessMessage] = useState('');
 
-  // Check for quick-add success
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const addedId = params.get('added');
@@ -49,21 +53,15 @@ export default function Dashboard() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Task operations
   const addTask = async (taskData: Partial<Task>) => {
     const res = await fetch('/api/tasks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(taskData),
     });
-    if (res.ok) {
-      await fetchData();
-      setShowAddForm(false);
-    }
+    if (res.ok) { await fetchData(); setShowAddForm(false); }
   };
 
   const updateTask = async (taskData: Partial<Task>) => {
@@ -73,18 +71,13 @@ export default function Dashboard() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(taskData),
     });
-    if (res.ok) {
-      await fetchData();
-      setEditingTask(null);
-    }
+    if (res.ok) { await fetchData(); setEditingTask(null); }
   };
 
   const deleteTask = async (taskId: string) => {
     if (!confirm('Delete this task?')) return;
     const res = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
-    if (res.ok) {
-      await fetchData();
-    }
+    if (res.ok) { await fetchData(); }
   };
 
   const updateTaskStatus = async (taskId: string, status: number) => {
@@ -93,21 +86,16 @@ export default function Dashboard() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
     });
-    if (res.ok) {
-      await fetchData();
-    }
+    if (res.ok) { await fetchData(); }
   };
 
-  // Category operations
   const addCategory = async (catData: Partial<Category>) => {
     const res = await fetch('/api/categories', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(catData),
     });
-    if (res.ok) {
-      await fetchData();
-    }
+    if (res.ok) { await fetchData(); }
   };
 
   const updateCategory = async (cat: Category) => {
@@ -116,20 +104,15 @@ export default function Dashboard() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(cat),
     });
-    if (res.ok) {
-      await fetchData();
-    }
+    if (res.ok) { await fetchData(); }
   };
 
   const deleteCategory = async (catId: string) => {
     if (!confirm('Delete this category?')) return;
     const res = await fetch(`/api/categories?id=${catId}`, { method: 'DELETE' });
-    if (res.ok) {
-      await fetchData();
-    }
+    if (res.ok) { await fetchData(); }
   };
 
-  // JSON Import
   const importTasks = async (tasksToImport: unknown[]) => {
     for (const taskData of tasksToImport) {
       await fetch('/api/tasks', {
@@ -141,13 +124,13 @@ export default function Dashboard() {
     await fetchData();
   };
 
-  // Filter and sort tasks
+  // Filter and sort
   const filteredTasks = tasks
     .filter((task) => {
-      if (filter === 'all') return true;
-      if (filter === 'active') return task.status < 10;
-      if (filter === 'completed') return task.status >= 10;
-      return task.categoryId === filter;
+      if (activeTab === 'all') return true;
+      if (activeTab === 'active') return task.status < 10;
+      if (activeTab === 'done') return task.status >= 10;
+      return task.categoryId === activeTab;
     })
     .sort((a, b) => {
       switch (sort) {
@@ -156,8 +139,8 @@ export default function Dashboard() {
           if (!b.deadline) return -1;
           return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
         case 'priority':
-          const priorityOrder = { high: 0, medium: 1, low: 2 };
-          return priorityOrder[a.priority] - priorityOrder[b.priority];
+          const p = { high: 0, medium: 1, low: 2 };
+          return p[a.priority] - p[b.priority];
         case 'status':
           return a.status - b.status;
         case 'created':
@@ -167,152 +150,134 @@ export default function Dashboard() {
       }
     });
 
-  // Stats
   const stats = {
     total: tasks.length,
     active: tasks.filter((t) => t.status < 10).length,
-    completed: tasks.filter((t) => t.status >= 10).length,
+    done: tasks.filter((t) => t.status >= 10).length,
     urgent: tasks.filter((t) => getTrafficLightColor(t) === 'red').length,
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center dark:bg-gray-900">
-        <div className="text-xl">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-pulse text-muted-foreground">Loading tasks...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4 md:p-8">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Omar Life Planner
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Manage your tasks across work, startup, university, and personal life
-          </p>
-        </header>
+    <div className="min-h-screen bg-background">
+      {/* Header - Mobile friendly */}
+      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b">
+        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-bold tracking-tight">Life Planner</h1>
+            <p className="text-[11px] text-muted-foreground hidden sm:block">Tasks & deadlines</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Settings Sheet */}
+            <Sheet>
+              <SheetTrigger className="inline-flex items-center justify-center rounded-md border border-input bg-background h-8 w-8 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
+                  <path fillRule="evenodd" d="M6.955 1.45A.5.5 0 0 1 7.452 1h1.096a.5.5 0 0 1 .497.45l.17 1.699c.484.12.94.312 1.356.562l1.321-.916a.5.5 0 0 1 .67.033l.774.775a.5.5 0 0 1 .033.67l-.916 1.32c.25.417.443.873.563 1.357l1.699.17a.5.5 0 0 1 .45.497v1.096a.5.5 0 0 1-.45.497l-1.699.17c-.12.484-.312.94-.562 1.356l.916 1.321a.5.5 0 0 1-.034.67l-.774.774a.5.5 0 0 1-.67.033l-1.32-.916c-.417.25-.873.443-1.357.563l-.17 1.699a.5.5 0 0 1-.497.45H7.452a.5.5 0 0 1-.497-.45l-.17-1.699a4.973 4.973 0 0 1-1.356-.562l-1.321.916a.5.5 0 0 1-.67-.033l-.774-.775a.5.5 0 0 1-.034-.67l.916-1.32a4.971 4.971 0 0 1-.562-1.357l-1.699-.17A.5.5 0 0 1 1 8.548V7.452a.5.5 0 0 1 .45-.497l1.699-.17c.12-.484.312-.94.562-1.356l-.916-1.321a.5.5 0 0 1 .034-.67l.774-.774a.5.5 0 0 1 .67-.033l1.32.916c.417-.25.873-.443 1.357-.563l.17-1.699ZM8 10.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" clipRule="evenodd"/>
+                </svg>
+              </SheetTrigger>
+              <SheetContent className="overflow-y-auto">
+                <SheetHeader>
+                  <SheetTitle>Settings</SheetTitle>
+                </SheetHeader>
+                <div className="mt-6 space-y-6">
+                  <CategoryManager
+                    categories={categories}
+                    onAdd={addCategory}
+                    onUpdate={updateCategory}
+                    onDelete={deleteCategory}
+                  />
+                  <JsonImport onImport={importTasks} />
+                </div>
+              </SheetContent>
+            </Sheet>
 
-        {/* Success Message */}
+            {/* Add Task Button */}
+            <Button size="sm" onClick={() => setShowAddForm(true)} className="h-8">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4 mr-1">
+                <path d="M8.75 3.75a.75.75 0 0 0-1.5 0v3.5h-3.5a.75.75 0 0 0 0 1.5h3.5v3.5a.75.75 0 0 0 1.5 0v-3.5h3.5a.75.75 0 0 0 0-1.5h-3.5v-3.5Z"/>
+              </svg>
+              <span className="hidden sm:inline">Add Task</span>
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-5xl mx-auto px-4 py-4 space-y-4">
+        {/* Success Toast */}
         {successMessage && (
-          <div className="mb-4 p-3 bg-green-100 text-green-800 rounded-lg">
+          <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-emerald-500 text-white px-4 py-2 rounded-lg shadow-lg text-sm animate-in fade-in slide-in-from-top-2">
             {successMessage}
           </div>
         )}
 
-        {/* Stats Bar */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
-          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm">
-            <div className="text-2xl font-bold">{stats.total}</div>
-            <div className="text-sm text-gray-500">Total Tasks</div>
-          </div>
-          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm">
-            <div className="text-2xl font-bold text-blue-600">{stats.active}</div>
-            <div className="text-sm text-gray-500">Active</div>
-          </div>
-          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm">
-            <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
-            <div className="text-sm text-gray-500">Completed</div>
-          </div>
-          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm">
-            <div className="text-2xl font-bold text-red-600">{stats.urgent}</div>
-            <div className="text-sm text-gray-500">Urgent</div>
-          </div>
+        {/* Stats Row */}
+        <div className="grid grid-cols-4 gap-2">
+          {[
+            { label: 'Total', value: stats.total, color: '' },
+            { label: 'Active', value: stats.active, color: 'text-blue-600 dark:text-blue-400' },
+            { label: 'Done', value: stats.done, color: 'text-emerald-600 dark:text-emerald-400' },
+            { label: 'Urgent', value: stats.urgent, color: 'text-red-600 dark:text-red-400' },
+          ].map(({ label, value, color }) => (
+            <Card key={label} className="py-2">
+              <CardContent className="p-0 px-3 text-center">
+                <div className={`text-xl font-bold ${color}`}>{value}</div>
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
 
-        {/* Controls */}
-        <div className="flex flex-wrap gap-4 mb-6">
-          <button
-            onClick={() => setShowAddForm(!showAddForm)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            {showAddForm ? 'Cancel' : '+ Add Task'}
-          </button>
-          <button
-            onClick={() => setShowCategories(!showCategories)}
-            className="px-4 py-2 border rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-          >
-            {showCategories ? 'Hide Categories' : 'Manage Categories'}
-          </button>
-
-          {/* Filter */}
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="px-3 py-2 border rounded-lg dark:bg-gray-800 dark:border-gray-600"
-          >
-            <option value="all">All Tasks</option>
-            <option value="active">Active</option>
-            <option value="completed">Completed</option>
-            <optgroup label="Categories">
+        {/* Filter Tabs + Sort */}
+        <div className="flex items-center gap-2">
+          <Tabs value={activeTab} onValueChange={(v) => v && setActiveTab(v)} className="flex-1">
+            <TabsList className="h-8 w-full justify-start overflow-x-auto">
+              <TabsTrigger value="all" className="text-xs h-6 px-2">All</TabsTrigger>
+              <TabsTrigger value="active" className="text-xs h-6 px-2">Active</TabsTrigger>
+              <TabsTrigger value="done" className="text-xs h-6 px-2">Done</TabsTrigger>
               {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
+                <TabsTrigger key={cat.id} value={cat.id} className="text-xs h-6 px-2">
+                  <span className="w-2 h-2 rounded-full mr-1" style={{ backgroundColor: cat.color }} />
+                  <span className="hidden sm:inline">{cat.name}</span>
+                  <span className="sm:hidden">{cat.name.slice(0, 4)}</span>
+                </TabsTrigger>
               ))}
-            </optgroup>
-          </select>
+            </TabsList>
+          </Tabs>
 
-          {/* Sort */}
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortType)}
-            className="px-3 py-2 border rounded-lg dark:bg-gray-800 dark:border-gray-600"
-          >
-            <option value="deadline">Sort by Deadline</option>
-            <option value="priority">Sort by Priority</option>
-            <option value="status">Sort by Status</option>
-            <option value="created">Sort by Created</option>
-          </select>
+          <Select value={sort} onValueChange={(v) => v && setSort(v as SortType)}>
+            <SelectTrigger className="w-[110px] h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="deadline">Deadline</SelectItem>
+              <SelectItem value="priority">Priority</SelectItem>
+              <SelectItem value="status">Progress</SelectItem>
+              <SelectItem value="created">Newest</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
-        {/* Add Task Form */}
-        {showAddForm && (
-          <div className="mb-6">
-            <TaskForm
-              categories={categories}
-              onSubmit={addTask}
-              onCancel={() => setShowAddForm(false)}
-            />
-          </div>
-        )}
-
-        {/* Edit Task Modal */}
-        {editingTask && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="w-full max-w-lg">
-              <TaskForm
-                categories={categories}
-                onSubmit={updateTask}
-                initialTask={editingTask}
-                onCancel={() => setEditingTask(null)}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Category Manager */}
-        {showCategories && (
-          <div className="mb-6">
-            <CategoryManager
-              categories={categories}
-              onAdd={addCategory}
-              onUpdate={updateCategory}
-              onDelete={deleteCategory}
-            />
-          </div>
-        )}
-
-        {/* JSON Import */}
-        <div className="mb-6">
-          <JsonImport onImport={importTasks} />
+        {/* Task count */}
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-muted-foreground">
+            {filteredTasks.length} task{filteredTasks.length !== 1 ? 's' : ''}
+          </p>
+          {filteredTasks.filter(t => getTrafficLightColor(t) === 'red').length > 0 && (
+            <Badge variant="destructive" className="text-[10px]">
+              {filteredTasks.filter(t => getTrafficLightColor(t) === 'red').length} need attention
+            </Badge>
+          )}
         </div>
 
-        {/* Task Grid */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {/* Task Grid - responsive */}
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {filteredTasks.map((task) => (
             <TaskCard
               key={task.id}
@@ -326,12 +291,46 @@ export default function Dashboard() {
         </div>
 
         {filteredTasks.length === 0 && (
-          <div className="text-center py-12 text-gray-500">
-            <p className="text-xl mb-2">No tasks found</p>
-            <p>Add a task to get started</p>
+          <div className="text-center py-16">
+            <div className="text-4xl mb-3 opacity-50">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="w-12 h-12 mx-auto text-muted-foreground">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25Z" />
+              </svg>
+            </div>
+            <p className="text-muted-foreground text-sm">No tasks yet</p>
+            <Button variant="outline" size="sm" className="mt-3" onClick={() => setShowAddForm(true)}>
+              Add your first task
+            </Button>
           </div>
         )}
-      </div>
+      </main>
+
+      {/* Add Task Dialog */}
+      <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add Task</DialogTitle>
+          </DialogHeader>
+          <TaskForm categories={categories} onSubmit={addTask} onCancel={() => setShowAddForm(false)} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Task Dialog */}
+      <Dialog open={!!editingTask} onOpenChange={(open) => !open && setEditingTask(null)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Task</DialogTitle>
+          </DialogHeader>
+          {editingTask && (
+            <TaskForm
+              categories={categories}
+              onSubmit={updateTask}
+              initialTask={editingTask}
+              onCancel={() => setEditingTask(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

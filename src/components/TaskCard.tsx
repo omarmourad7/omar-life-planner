@@ -1,6 +1,10 @@
 'use client';
 
 import { Task, Category, getTrafficLightColor, getStatusLabel } from '@/lib/types';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
 
 interface TaskCardProps {
   task: Task;
@@ -14,18 +18,28 @@ export default function TaskCard({ task, category, onEdit, onDelete, onStatusCha
   const trafficLight = getTrafficLightColor(task);
   const statusLabel = getStatusLabel(task.status);
 
-  const trafficLightColors = {
-    red: 'bg-red-500',
-    orange: 'bg-orange-500',
-    yellow: 'bg-yellow-500',
-    green: 'bg-green-500',
+  const trafficLightStyles = {
+    red: 'border-l-red-500 dark:border-l-red-400',
+    orange: 'border-l-orange-500 dark:border-l-orange-400',
+    yellow: 'border-l-amber-500 dark:border-l-amber-400',
+    green: 'border-l-emerald-500 dark:border-l-emerald-400',
+    gray: 'border-l-gray-300 dark:border-l-gray-600',
+  };
+
+  const trafficLightDot = {
+    red: 'bg-red-500 shadow-red-500/50',
+    orange: 'bg-orange-500 shadow-orange-500/50',
+    yellow: 'bg-amber-500 shadow-amber-500/50',
+    green: 'bg-emerald-500 shadow-emerald-500/50',
     gray: 'bg-gray-400',
   };
 
-  const priorityBadge = {
-    high: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-    medium: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-    low: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+  const progressColors = {
+    red: '[&>div]:bg-red-500',
+    orange: '[&>div]:bg-orange-500',
+    yellow: '[&>div]:bg-amber-500',
+    green: '[&>div]:bg-emerald-500',
+    gray: '[&>div]:bg-gray-400',
   };
 
   const formatDeadline = (deadline: string | null) => {
@@ -36,102 +50,89 @@ export default function TaskCard({ task, category, onEdit, onDelete, onStatusCha
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const days = Math.floor(hours / 24);
 
-    if (diff < 0) return 'Overdue';
-    if (hours < 1) return 'Less than 1 hour';
-    if (hours < 24) return `${hours} hours left`;
-    if (days === 1) return 'Tomorrow';
-    if (days < 7) return `${days} days left`;
-    return date.toLocaleDateString('en-NZ', { weekday: 'short', day: 'numeric', month: 'short' });
+    if (diff < 0) return { text: 'Overdue', urgent: true };
+    if (hours < 6) return { text: `${hours}h left`, urgent: true };
+    if (hours < 24) return { text: `${hours}h left`, urgent: true };
+    if (days === 1) return { text: 'Tomorrow', urgent: false };
+    if (days < 7) return { text: `${days}d left`, urgent: false };
+    return { text: date.toLocaleDateString('en-NZ', { day: 'numeric', month: 'short' }), urgent: false };
   };
 
+  const deadlineInfo = formatDeadline(task.deadline);
+
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 border-l-4" style={{ borderLeftColor: trafficLightColors[trafficLight].replace('bg-', '#').replace('-500', '') }}>
-      {/* Header */}
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <div className="flex items-center gap-2">
-          {/* Traffic Light Indicator */}
-          <div className={`w-3 h-3 rounded-full ${trafficLightColors[trafficLight]}`} title={`Status: ${statusLabel}`} />
-          <h3 className="font-semibold text-lg">{task.title}</h3>
+    <Card className={`border-l-4 ${trafficLightStyles[trafficLight]} transition-all hover:shadow-md active:scale-[0.98]`}>
+      <CardContent className="p-4">
+        {/* Header Row */}
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="flex items-start gap-2 min-w-0 flex-1">
+            <div className={`w-2.5 h-2.5 rounded-full mt-1.5 shrink-0 shadow-sm ${trafficLightDot[trafficLight]}`} />
+            <h3 className="font-semibold text-sm leading-tight line-clamp-2">{task.title}</h3>
+          </div>
+          <div className="flex gap-0.5 shrink-0">
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(task)}>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
+                <path d="M13.488 2.513a1.75 1.75 0 0 0-2.475 0L3.84 9.686a2.5 2.5 0 0 0-.65 1.11l-.63 2.521a.5.5 0 0 0 .61.61l2.521-.63a2.5 2.5 0 0 0 1.11-.65l7.173-7.173a1.75 1.75 0 0 0 0-2.475l-.487-.487Z"/>
+              </svg>
+            </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => onDelete(task.id)}>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
+                <path fillRule="evenodd" d="M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11v-.75A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25Zm2.25-.75a.75.75 0 0 0-.75.75V4h3v-.75a.75.75 0 0 0-.75-.75h-1.5ZM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6Zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5A.75.75 0 0 1 9.95 6Z" clipRule="evenodd"/>
+              </svg>
+            </Button>
+          </div>
         </div>
-        <div className="flex gap-1">
-          <button
-            onClick={() => onEdit(task)}
-            className="p-1 text-gray-500 hover:text-blue-600 dark:hover:text-blue-400"
-            title="Edit"
-          >
-            ✏️
-          </button>
-          <button
-            onClick={() => onDelete(task.id)}
-            className="p-1 text-gray-500 hover:text-red-600 dark:hover:text-red-400"
-            title="Delete"
-          >
-            🗑️
-          </button>
-        </div>
-      </div>
 
-      {/* Description */}
-      {task.description && (
-        <p className="text-gray-600 dark:text-gray-400 text-sm mb-3 line-clamp-2">
-          {task.description}
-        </p>
-      )}
-
-      {/* Meta Info */}
-      <div className="flex flex-wrap items-center gap-2 mb-3">
-        {/* Category Badge */}
-        {category && (
-          <span
-            className="px-2 py-0.5 rounded-full text-xs font-medium text-white"
-            style={{ backgroundColor: category.color }}
-          >
-            {category.name}
-          </span>
+        {/* Description */}
+        {task.description && (
+          <p className="text-muted-foreground text-xs mb-3 line-clamp-2 ml-4.5">
+            {task.description}
+          </p>
         )}
 
-        {/* Priority Badge */}
-        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${priorityBadge[task.priority]}`}>
-          {task.priority}
-        </span>
+        {/* Badges */}
+        <div className="flex flex-wrap items-center gap-1.5 mb-3">
+          {category && (
+            <Badge variant="secondary" className="text-[10px] px-2 py-0 text-white" style={{ backgroundColor: category.color }}>
+              {category.name}
+            </Badge>
+          )}
+          <Badge variant={task.priority === 'high' ? 'destructive' : 'outline'} className="text-[10px] px-2 py-0">
+            {task.priority}
+          </Badge>
+          {deadlineInfo && (
+            <Badge variant={deadlineInfo.urgent ? 'destructive' : 'secondary'} className="text-[10px] px-2 py-0">
+              {deadlineInfo.text}
+            </Badge>
+          )}
+        </div>
 
-        {/* Deadline */}
-        {task.deadline && (
-          <span className="text-xs text-gray-500 dark:text-gray-400">
-            📅 {formatDeadline(task.deadline)}
-          </span>
-        )}
-      </div>
+        {/* Progress */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{statusLabel}</span>
+            <span className="text-[10px] font-mono text-muted-foreground">{task.status * 10}%</span>
+          </div>
+          <Progress value={task.status * 10} className={`h-1.5 ${progressColors[trafficLight]}`} />
 
-      {/* Progress Bar */}
-      <div className="mt-3">
-        <div className="flex items-center justify-between text-xs mb-1">
-          <span className="text-gray-500 dark:text-gray-400">{statusLabel}</span>
-          <span className="font-mono">{task.status}/10</span>
+          {/* Quick status buttons */}
+          <div className="flex gap-1 pt-1">
+            {[0, 2, 4, 6, 8, 10].map((val) => (
+              <button
+                key={val}
+                onClick={() => onStatusChange(task.id, val)}
+                className={`flex-1 h-6 text-[10px] rounded-md font-medium transition-colors ${
+                  task.status === val
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted hover:bg-accent text-muted-foreground'
+                }`}
+              >
+                {val}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-          <div
-            className={`h-full transition-all duration-300 ${trafficLightColors[trafficLight]}`}
-            style={{ width: `${task.status * 10}%` }}
-          />
-        </div>
-        {/* Quick status buttons */}
-        <div className="flex justify-between mt-2">
-          {[0, 2, 4, 6, 8, 10].map((val) => (
-            <button
-              key={val}
-              onClick={() => onStatusChange(task.id, val)}
-              className={`w-8 h-6 text-xs rounded ${
-                task.status === val
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}
-            >
-              {val}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
