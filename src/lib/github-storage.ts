@@ -1,11 +1,12 @@
 // GitHub JSON storage handler
 import { Octokit } from '@octokit/rest';
-import { TasksData, CategoriesData, DEFAULT_CATEGORIES } from './types';
+import { TasksData, CategoriesData, DEFAULT_CATEGORIES, FinancialData, DEFAULT_FINANCIAL_CATEGORIES, DEFAULT_BUDGET } from './types';
 
 const REPO_OWNER = 'omarmourad7';
 const REPO_NAME = 'omar-life-planner-data';
 const TASKS_FILE = 'tasks.json';
 const CATEGORIES_FILE = 'categories.json';
+const FINANCE_FILE = 'finance.json';
 
 function getOctokit() {
   const token = process.env.GITHUB_TOKEN;
@@ -83,4 +84,24 @@ export async function saveCategories(data: CategoriesData): Promise<void> {
   const file = await getFileContent(CATEGORIES_FILE);
   data.lastUpdated = new Date().toISOString();
   await saveFileContent(CATEGORIES_FILE, JSON.stringify(data, null, 2), file?.sha);
+}
+
+// Financial data operations
+export async function getFinancialData(): Promise<FinancialData> {
+  const file = await getFileContent(FINANCE_FILE);
+  if (!file) {
+    return {
+      transactions: [],
+      budget: { ...DEFAULT_BUDGET },
+      categories: [...DEFAULT_FINANCIAL_CATEGORIES],
+      lastUpdated: new Date().toISOString(),
+    };
+  }
+  return JSON.parse(file.content) as FinancialData;
+}
+
+export async function saveFinancialData(data: FinancialData): Promise<void> {
+  const file = await getFileContent(FINANCE_FILE);
+  data.lastUpdated = new Date().toISOString();
+  await saveFileContent(FINANCE_FILE, JSON.stringify(data, null, 2), file?.sha);
 }

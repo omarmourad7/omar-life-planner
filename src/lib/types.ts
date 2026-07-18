@@ -100,3 +100,136 @@ export function getStatusLabel(status: number): string {
   if (status < 10) return 'Almost Done';
   return 'Completed';
 }
+
+// ============================================================================
+// Financial Tracking Types
+// ============================================================================
+
+export interface Transaction {
+  id: string;
+  amount: number; // always positive
+  currency: string; // "NZD" default
+  amountNZD: number; // converted amount for budget tracking
+  description: string;
+  categoryId: string;
+  date: string; // ISO date string (YYYY-MM-DD)
+  isSubscription: boolean;
+  subscriptionFrequency?: 'weekly' | 'monthly' | 'yearly';
+  createdAt: string;
+}
+
+export interface Budget {
+  monthlyBudget: number;
+  weeklyOverrides: Record<string, number>; // "2026-W29" -> override amount
+}
+
+export interface FinancialCategory {
+  id: string;
+  name: string;
+  color: string; // hex color
+  icon: string; // emoji or icon name
+}
+
+export interface FinancialData {
+  transactions: Transaction[];
+  budget: Budget;
+  categories: FinancialCategory[];
+  lastUpdated: string;
+}
+
+// Default financial categories
+export const DEFAULT_FINANCIAL_CATEGORIES: FinancialCategory[] = [
+  { id: 'food', name: 'Food & Groceries', color: '#22C55E', icon: '🛒' },
+  { id: 'transport', name: 'Transport/Fuel', color: '#3B82F6', icon: '🚗' },
+  { id: 'subscriptions', name: 'Subscriptions', color: '#8B5CF6', icon: '🔄' },
+  { id: 'entertainment', name: 'Entertainment', color: '#EC4899', icon: '🎬' },
+  { id: 'travel', name: 'Travel', color: '#F59E0B', icon: '✈️' },
+  { id: 'rent-bills', name: 'Rent/Bills', color: '#EF4444', icon: '🏠' },
+  { id: 'shopping', name: 'Shopping', color: '#06B6D4', icon: '🛍️' },
+  { id: 'other', name: 'Other', color: '#6B7280', icon: '📦' },
+];
+
+export const DEFAULT_BUDGET: Budget = {
+  monthlyBudget: 2000,
+  weeklyOverrides: {},
+};
+
+// Helper: Get ISO week string (e.g. "2026-W29")
+export function getISOWeekString(date: Date): string {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return `${d.getUTCFullYear()}-W${weekNo.toString().padStart(2, '0')}`;
+}
+
+// Helper: Get the Monday of the ISO week for a given date
+export function getWeekStart(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  return new Date(d.setDate(diff));
+}
+
+// Helper: Get the Sunday of the ISO week for a given date
+export function getWeekEnd(date: Date): Date {
+  const start = getWeekStart(date);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  return end;
+}
+
+// Helper: Get month string (e.g. "2026-07")
+export function getMonthString(date: Date): string {
+  return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+}
+
+// Helper: Calculate weekly budget considering overrides
+export function getWeeklyBudget(budget: Budget, weekString: string, monthString: string): number {
+  // If there's an override for this specific week, use it
+  if (budget.weeklyOverrides[weekString] !== undefined) {
+    return budget.weeklyOverrides[weekString];
+  }
+
+  // Base weekly budget = monthly / 4
+  const baseWeekly = budget.monthlyBudget / 4;
+
+  // Check if other weeks in this month have overrides that affect this week
+  const monthWeeks = getWeeksInMonth(monthString);
+  const overriddenWeeks = monthWeeks.filter(w => budget.weeklyOverrides[w] !== undefined);
+
+  if (overriddenWeeks.length === 0) {
+    return baseWeekly;
+  }
+
+  // Calculate remaining budget after overrides
+  const overriddenTotal = overriddenWeeks.reduce(
+    (sum, w) => sum + (budget.weeklyOverrides[w] || 0),
+    0
+  );
+  const remainingBudget = budget.monthlyBudget - overriddenTotal;
+  const remainingWeeks = monthWeeks.length - overriddenWeeks.length;
+
+  return remainingWeeks > 0 ? remainingBudget / remainingWeeks : 0;
+}
+
+// Helper: Get all ISO week strings that overlap with a given month
+export function getWeeksInMonth(monthString: string): string[] {
+  const [year, month] = monthString.split('-').map(Number);
+  const weeks: string[] = [];
+  const seen = new Set<string>();
+
+  // Iterate through each day of the month
+  const daysInMonth = new Date(year, month, 0).getDate();
+  for (let day = 1; day <= daysInMonth; day++) {
+    const date = new Date(year, month - 1, day);
+    const weekStr = getISOWeekString(date);
+    if (!seen.has(weekStr)) {
+      seen.add(weekStr);
+      weeks.push(weekStr);
+    }
+  }
+
+  return weeks;
+}

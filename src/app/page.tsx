@@ -166,10 +166,10 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header - Mobile friendly */}
-      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b safe-top">
+      <header className="sticky top-[49px] z-40 bg-background/80 backdrop-blur-lg border-b">
         <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-bold tracking-tight">Life Planner</h1>
+            <h1 className="text-lg font-bold tracking-tight">Tasks</h1>
             <p className="text-[11px] text-muted-foreground hidden sm:block">Tasks & deadlines</p>
           </div>
           <div className="flex items-center gap-2">
