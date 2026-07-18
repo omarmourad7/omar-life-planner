@@ -48,6 +48,7 @@ function getCalendar(): calendar_v3.Calendar {
 }
 
 // Convert notification settings to Google Calendar reminders
+// Google Calendar limits: max 5 reminders, max 40320 minutes (4 weeks)
 function buildReminders(notifications: NotificationSettings): calendar_v3.Schema$EventReminder[] {
   const reminders: calendar_v3.Schema$EventReminder[] = [];
 
@@ -71,7 +72,9 @@ function buildReminders(notifications: NotificationSettings): calendar_v3.Schema
     }
   }
 
-  return reminders;
+  // Google Calendar allows max 5 reminder overrides - keep the 5 closest to the event
+  reminders.sort((a, b) => (a.minutes || 0) - (b.minutes || 0));
+  return reminders.slice(0, 5);
 }
 
 export async function createCalendarEvent(task: Task): Promise<string | null> {
