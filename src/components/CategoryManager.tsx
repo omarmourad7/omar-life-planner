@@ -120,7 +120,7 @@ export default function CategoryManager({ categories, onAdd, onUpdate, onDelete 
                   <Button
                     size="icon"
                     variant="ghost"
-                    className="h-7 w-7 opacity-0 group-hover:opacity-100"
+                    className="h-7 w-7"
                     onClick={() => { setEditingId(cat.id); setEditName(cat.name); setEditColor(cat.color); }}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3"><path d="M13.488 2.513a1.75 1.75 0 0 0-2.475 0L3.84 9.686a2.5 2.5 0 0 0-.65 1.11l-.63 2.521a.5.5 0 0 0 .61.61l2.521-.63a2.5 2.5 0 0 0 1.11-.65l7.173-7.173a1.75 1.75 0 0 0 0-2.475l-.487-.487Z"/></svg>
@@ -128,7 +128,7 @@ export default function CategoryManager({ categories, onAdd, onUpdate, onDelete 
                   <Button
                     size="icon"
                     variant="ghost"
-                    className="h-7 w-7 opacity-0 group-hover:opacity-100 text-destructive"
+                    className="h-7 w-7 text-destructive"
                     onClick={() => onDelete(cat.id)}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/></svg>
