@@ -41,12 +41,12 @@ export interface CategoriesData {
   lastUpdated: string;
 }
 
-// Default notification settings - all ON
+// Default notification settings - all ON except 24h (Google Calendar max 5 reminders)
 export const DEFAULT_NOTIFICATIONS: NotificationSettings = {
   '3d': true,
   '2d': true,
-  '24h': true,
-  '18h': true,
+  '24h': false,
+  '18h': false,
   '12h': true,
   '6h': true,
   '2h': true,
