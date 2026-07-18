@@ -92,7 +92,7 @@ export default function BudgetSettings({
         </p>
         <div className="space-y-2">
           {weeksInMonth.map(week => {
-            const weekBudget = getWeeklyBudget(budget, week, currentMonth);
+            const weekBudget = getWeeklyBudget(budget, week, now);
             const isOverridden = budget.weeklyOverrides[week] !== undefined;
             const isCurrent = week === currentWeek;
 

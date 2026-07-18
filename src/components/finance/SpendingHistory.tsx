@@ -94,7 +94,7 @@ export default function SpendingHistory({ transactions, categories, budget }: Sp
       <div className="space-y-2">
         {data.map(([period, info]) => {
           const periodBudget = viewMode === 'weeks'
-            ? getWeeklyBudget(budget, period, period.substring(0, 7) || getMonthString(new Date()))
+            ? getWeeklyBudget(budget, period, new Date())
             : budget.monthlyBudget;
           const percentage = periodBudget > 0 ? Math.min(info.total / periodBudget, 1) : 0;
           const isOver = info.total > periodBudget;

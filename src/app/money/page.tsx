@@ -10,6 +10,9 @@ import {
   getWeeklyBudget,
   getWeekStart,
   getWeekEnd,
+  isDateInBudgetMonth,
+  formatBudgetWeek,
+  formatBudgetMonth,
 } from '@/lib/types';
 import CircularBudget from '@/components/finance/CircularBudget';
 import TransactionList from '@/components/finance/TransactionList';
@@ -82,11 +85,11 @@ export default function MoneyPage() {
 
   const monthSpent = useMemo(() => {
     return transactions
-      .filter(t => t.date.startsWith(currentMonth))
+      .filter(t => isDateInBudgetMonth(t.date, now))
       .reduce((sum, t) => sum + t.amountNZD, 0);
-  }, [transactions, currentMonth]);
+  }, [transactions]);
 
-  const weeklyBudget = getWeeklyBudget(budget, currentWeek, currentMonth);
+  const weeklyBudget = getWeeklyBudget(budget, currentWeek, now);
 
   // Subscriptions
   const subscriptions = useMemo(() => {

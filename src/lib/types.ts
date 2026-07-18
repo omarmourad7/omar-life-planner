@@ -120,7 +120,7 @@ export interface Transaction {
 
 export interface Budget {
   monthlyBudget: number;
-  weeklyOverrides: Record<string, number>; // "2026-W29" -> override amount
+  weeklyOverrides: Record<string, number>; // "Jul-W1" -> override amount
 }
 
 export interface FinancialCategory {
@@ -154,56 +154,132 @@ export const DEFAULT_BUDGET: Budget = {
   weeklyOverrides: {},
 };
 
-// Helper: Get ISO week string (e.g. "2026-W29")
-export function getISOWeekString(date: Date): string {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-  return `${d.getUTCFullYear()}-W${weekNo.toString().padStart(2, '0')}`;
+// ============================================================================
+// Budget Cycle Helpers (15th-to-15th system)
+// Budget month: 15th of one month to 14th of the next
+// Named after the month where the 15th start date falls
+// Week 1: 15th-21st, Week 2: 22nd-28th, Week 3: 29th-4th, Week 4: 5th-14th
+// ============================================================================
+
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// Get the budget month name for a given date (based on 15th cycle)
+export function getBudgetMonthName(date: Date): string {
+  const day = date.getDate();
+  // If before the 15th, this date belongs to the PREVIOUS month's budget cycle
+  if (day < 15) {
+    const prevMonth = new Date(date.getFullYear(), date.getMonth() - 1, 15);
+    return MONTH_NAMES[prevMonth.getMonth()];
+  }
+  return MONTH_NAMES[date.getMonth()];
 }
 
-// Helper: Get the Monday of the ISO week for a given date
-export function getWeekStart(date: Date): Date {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  return new Date(d.setDate(diff));
+// Get the budget month key (e.g., "2026-Jul") for storage/lookup
+export function getBudgetMonthKey(date: Date): string {
+  const day = date.getDate();
+  if (day < 15) {
+    const prevMonth = new Date(date.getFullYear(), date.getMonth() - 1, 15);
+    return `${prevMonth.getFullYear()}-${MONTH_NAMES[prevMonth.getMonth()]}`;
+  }
+  return `${date.getFullYear()}-${MONTH_NAMES[date.getMonth()]}`;
 }
 
-// Helper: Get the Sunday of the ISO week for a given date
-export function getWeekEnd(date: Date): Date {
-  const start = getWeekStart(date);
-  const end = new Date(start);
+// Get the start date of a budget month (the 15th)
+export function getBudgetMonthStart(date: Date): Date {
+  const day = date.getDate();
+  if (day < 15) {
+    return new Date(date.getFullYear(), date.getMonth() - 1, 15);
+  }
+  return new Date(date.getFullYear(), date.getMonth(), 15);
+}
+
+// Get the end date of a budget month (the 14th of next month)
+export function getBudgetMonthEnd(date: Date): Date {
+  const start = getBudgetMonthStart(date);
+  return new Date(start.getFullYear(), start.getMonth() + 1, 14);
+}
+
+// Get which week (1-4) a date falls in within its budget month
+export function getBudgetWeekNumber(date: Date): number {
+  const start = getBudgetMonthStart(date);
+  const daysSinceStart = Math.floor((date.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (daysSinceStart < 7) return 1;  // 15th-21st
+  if (daysSinceStart < 14) return 2; // 22nd-28th
+  if (daysSinceStart < 21) return 3; // 29th-4th
+  return 4;                           // 5th-14th
+}
+
+// Get the week key (e.g., "Jul-W1") for a given date
+export function getBudgetWeekKey(date: Date): string {
+  const monthName = getBudgetMonthName(date);
+  const weekNum = getBudgetWeekNumber(date);
+  return `${monthName}-W${weekNum}`;
+}
+
+// Get the start date of a specific budget week
+export function getBudgetWeekStart(date: Date): Date {
+  const monthStart = getBudgetMonthStart(date);
+  const weekNum = getBudgetWeekNumber(date);
+  const daysOffset = (weekNum - 1) * 7;
+  return new Date(monthStart.getFullYear(), monthStart.getMonth(), monthStart.getDate() + daysOffset);
+}
+
+// Get the end date of a specific budget week
+export function getBudgetWeekEnd(date: Date): Date {
+  const weekStart = getBudgetWeekStart(date);
+  const weekNum = getBudgetWeekNumber(date);
+  if (weekNum === 4) {
+    // Week 4 ends on the 14th (end of budget month)
+    return getBudgetMonthEnd(date);
+  }
+  // Weeks 1-3 are 7 days
+  const end = new Date(weekStart);
   end.setDate(end.getDate() + 6);
   return end;
 }
 
-// Helper: Get month string (e.g. "2026-07")
-export function getMonthString(date: Date): string {
-  return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+// Check if a date string (YYYY-MM-DD) falls within a budget week
+export function isDateInBudgetWeek(dateStr: string, referenceDate: Date): boolean {
+  const date = new Date(dateStr + 'T12:00:00');
+  const weekStart = getBudgetWeekStart(referenceDate);
+  const weekEnd = getBudgetWeekEnd(referenceDate);
+  return date >= weekStart && date <= weekEnd;
 }
 
-// Helper: Calculate weekly budget considering overrides
-export function getWeeklyBudget(budget: Budget, weekString: string, monthString: string): number {
+// Check if a date string falls within a budget month
+export function isDateInBudgetMonth(dateStr: string, referenceDate: Date): boolean {
+  const date = new Date(dateStr + 'T12:00:00');
+  const monthStart = getBudgetMonthStart(referenceDate);
+  const monthEnd = getBudgetMonthEnd(referenceDate);
+  return date >= monthStart && date <= monthEnd;
+}
+
+// Get all 4 week keys for a budget month
+export function getWeeksInBudgetMonth(date: Date): string[] {
+  const monthName = getBudgetMonthName(date);
+  return [`${monthName}-W1`, `${monthName}-W2`, `${monthName}-W3`, `${monthName}-W4`];
+}
+
+// Calculate weekly budget considering overrides
+export function getWeeklyBudget(budget: Budget, weekKey: string, date: Date): number {
   // If there's an override for this specific week, use it
-  if (budget.weeklyOverrides[weekString] !== undefined) {
-    return budget.weeklyOverrides[weekString];
+  if (budget.weeklyOverrides[weekKey] !== undefined) {
+    return budget.weeklyOverrides[weekKey];
   }
 
   // Base weekly budget = monthly / 4
   const baseWeekly = budget.monthlyBudget / 4;
 
-  // Check if other weeks in this month have overrides that affect this week
-  const monthWeeks = getWeeksInMonth(monthString);
+  // Check if other weeks in this month have overrides
+  const monthWeeks = getWeeksInBudgetMonth(date);
   const overriddenWeeks = monthWeeks.filter(w => budget.weeklyOverrides[w] !== undefined);
 
   if (overriddenWeeks.length === 0) {
     return baseWeekly;
   }
 
-  // Calculate remaining budget after overrides
+  // Calculate remaining budget after overrides, spread equally among non-overridden weeks
   const overriddenTotal = overriddenWeeks.reduce(
     (sum, w) => sum + (budget.weeklyOverrides[w] || 0),
     0
@@ -214,22 +290,44 @@ export function getWeeklyBudget(budget: Budget, weekString: string, monthString:
   return remainingWeeks > 0 ? remainingBudget / remainingWeeks : 0;
 }
 
-// Helper: Get all ISO week strings that overlap with a given month
+// Format a budget week for display: "Jul Week 1 (15-21)"
+export function formatBudgetWeek(date: Date): string {
+  const monthName = getBudgetMonthName(date);
+  const weekNum = getBudgetWeekNumber(date);
+  const start = getBudgetWeekStart(date);
+  const end = getBudgetWeekEnd(date);
+  return `${monthName} Week ${weekNum} (${start.getDate()}-${end.getDate()})`;
+}
+
+// Format a budget month for display: "Jul 15 - Aug 14"
+export function formatBudgetMonth(date: Date): string {
+  const start = getBudgetMonthStart(date);
+  const end = getBudgetMonthEnd(date);
+  const startMonth = MONTH_NAMES[start.getMonth()];
+  const endMonth = MONTH_NAMES[end.getMonth()];
+  return `${startMonth} ${start.getDate()} - ${endMonth} ${end.getDate()}`;
+}
+
+// Legacy helpers kept for compatibility
+export function getISOWeekString(date: Date): string {
+  return getBudgetWeekKey(date);
+}
+
+export function getWeekStart(date: Date): Date {
+  return getBudgetWeekStart(date);
+}
+
+export function getWeekEnd(date: Date): Date {
+  return getBudgetWeekEnd(date);
+}
+
+export function getMonthString(date: Date): string {
+  return getBudgetMonthKey(date);
+}
+
 export function getWeeksInMonth(monthString: string): string[] {
-  const [year, month] = monthString.split('-').map(Number);
-  const weeks: string[] = [];
-  const seen = new Set<string>();
-
-  // Iterate through each day of the month
-  const daysInMonth = new Date(year, month, 0).getDate();
-  for (let day = 1; day <= daysInMonth; day++) {
-    const date = new Date(year, month - 1, day);
-    const weekStr = getISOWeekString(date);
-    if (!seen.has(weekStr)) {
-      seen.add(weekStr);
-      weeks.push(weekStr);
-    }
-  }
-
-  return weeks;
+  // Extract month name and return the 4 weeks
+  const parts = monthString.split('-');
+  const monthName = parts[parts.length - 1];
+  return [`${monthName}-W1`, `${monthName}-W2`, `${monthName}-W3`, `${monthName}-W4`];
 }
