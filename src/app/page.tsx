@@ -8,7 +8,6 @@ import CategoryManager from '@/components/CategoryManager';
 import JsonImport from '@/components/JsonImport';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -234,21 +233,31 @@ export default function Dashboard() {
         </div>
 
         {/* Filter + Sort - stacked on mobile */}
-        <div className="space-y-2">
-          <div className="overflow-x-auto -mx-3 px-3">
-            <Tabs value={activeTab} onValueChange={(v) => v && setActiveTab(v)}>
-              <TabsList className="h-8 inline-flex w-auto min-w-full sm:min-w-0">
-                <TabsTrigger value="all" className="text-xs h-6 px-2">All</TabsTrigger>
-                <TabsTrigger value="active" className="text-xs h-6 px-2">Active</TabsTrigger>
-                <TabsTrigger value="done" className="text-xs h-6 px-2">Done</TabsTrigger>
-                {categories.map((cat) => (
-                  <TabsTrigger key={cat.id} value={cat.id} className="text-xs h-6 px-2 whitespace-nowrap">
-                    <span className="w-2 h-2 rounded-full mr-1 shrink-0" style={{ backgroundColor: cat.color }} />
-                    {cat.name}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
+        <div className="space-y-3">
+          <div className="overflow-x-auto -mx-3 px-3 pb-1">
+            <div className="flex gap-2 min-w-max">
+              {[
+                { id: 'all', label: 'All', color: '' },
+                { id: 'active', label: 'Active', color: '' },
+                { id: 'done', label: 'Done', color: '' },
+                ...categories.map(cat => ({ id: cat.id, label: cat.name, color: cat.color })),
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
+                    activeTab === tab.id
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground hover:bg-accent'
+                  }`}
+                >
+                  {tab.color && (
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: tab.color }} />
+                  )}
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="flex items-center justify-between">
