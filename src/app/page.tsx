@@ -8,11 +8,10 @@ import CategoryManager from '@/components/CategoryManager';
 import JsonImport from '@/components/JsonImport';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 
 type SortType = 'deadline' | 'priority' | 'status' | 'created';
 
@@ -168,8 +167,8 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header - Mobile friendly */}
-      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b safe-top">
+        <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold tracking-tight">Life Planner</h1>
             <p className="text-[11px] text-muted-foreground hidden sm:block">Tasks & deadlines</p>
@@ -200,7 +199,7 @@ export default function Dashboard() {
 
             {/* Add Task Button */}
             <Button size="sm" onClick={() => setShowAddForm(true)} className="h-8">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4 mr-1">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4 sm:mr-1">
                 <path d="M8.75 3.75a.75.75 0 0 0-1.5 0v3.5h-3.5a.75.75 0 0 0 0 1.5h3.5v3.5a.75.75 0 0 0 1.5 0v-3.5h3.5a.75.75 0 0 0 0-1.5h-3.5v-3.5Z"/>
               </svg>
               <span className="hidden sm:inline">Add Task</span>
@@ -209,7 +208,7 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-4 space-y-4">
+      <main className="max-w-5xl mx-auto px-3 sm:px-4 py-4 space-y-3">
         {/* Success Toast */}
         {successMessage && (
           <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-emerald-500 text-white px-4 py-2 rounded-lg shadow-lg text-sm animate-in fade-in slide-in-from-top-2">
@@ -218,62 +217,61 @@ export default function Dashboard() {
         )}
 
         {/* Stats Row */}
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-4 gap-1.5">
           {[
             { label: 'Total', value: stats.total, color: '' },
             { label: 'Active', value: stats.active, color: 'text-blue-600 dark:text-blue-400' },
             { label: 'Done', value: stats.done, color: 'text-emerald-600 dark:text-emerald-400' },
             { label: 'Urgent', value: stats.urgent, color: 'text-red-600 dark:text-red-400' },
           ].map(({ label, value, color }) => (
-            <Card key={label} className="py-2">
-              <CardContent className="p-0 px-3 text-center">
-                <div className={`text-xl font-bold ${color}`}>{value}</div>
-                <div className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</div>
+            <Card key={label} className="py-1.5">
+              <CardContent className="p-0 px-2 text-center">
+                <div className={`text-lg font-bold ${color}`}>{value}</div>
+                <div className="text-[9px] text-muted-foreground uppercase tracking-wide">{label}</div>
               </CardContent>
             </Card>
           ))}
         </div>
 
-        {/* Filter Tabs + Sort */}
-        <div className="flex items-center gap-2">
-          <Tabs value={activeTab} onValueChange={(v) => v && setActiveTab(v)} className="flex-1">
-            <TabsList className="h-8 w-full justify-start overflow-x-auto">
-              <TabsTrigger value="all" className="text-xs h-6 px-2">All</TabsTrigger>
-              <TabsTrigger value="active" className="text-xs h-6 px-2">Active</TabsTrigger>
-              <TabsTrigger value="done" className="text-xs h-6 px-2">Done</TabsTrigger>
-              {categories.map((cat) => (
-                <TabsTrigger key={cat.id} value={cat.id} className="text-xs h-6 px-2">
-                  <span className="w-2 h-2 rounded-full mr-1" style={{ backgroundColor: cat.color }} />
-                  <span className="hidden sm:inline">{cat.name}</span>
-                  <span className="sm:hidden">{cat.name.slice(0, 4)}</span>
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+        {/* Filter + Sort - stacked on mobile */}
+        <div className="space-y-2">
+          <div className="overflow-x-auto -mx-3 px-3">
+            <Tabs value={activeTab} onValueChange={(v) => v && setActiveTab(v)}>
+              <TabsList className="h-8 inline-flex w-auto min-w-full sm:min-w-0">
+                <TabsTrigger value="all" className="text-xs h-6 px-2">All</TabsTrigger>
+                <TabsTrigger value="active" className="text-xs h-6 px-2">Active</TabsTrigger>
+                <TabsTrigger value="done" className="text-xs h-6 px-2">Done</TabsTrigger>
+                {categories.map((cat) => (
+                  <TabsTrigger key={cat.id} value={cat.id} className="text-xs h-6 px-2 whitespace-nowrap">
+                    <span className="w-2 h-2 rounded-full mr-1 shrink-0" style={{ backgroundColor: cat.color }} />
+                    {cat.name}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          </div>
 
-          <Select value={sort} onValueChange={(v) => v && setSort(v as SortType)}>
-            <SelectTrigger className="w-[110px] h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="deadline">Deadline</SelectItem>
-              <SelectItem value="priority">Priority</SelectItem>
-              <SelectItem value="status">Progress</SelectItem>
-              <SelectItem value="created">Newest</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Task count */}
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">
-            {filteredTasks.length} task{filteredTasks.length !== 1 ? 's' : ''}
-          </p>
-          {filteredTasks.filter(t => getTrafficLightColor(t) === 'red').length > 0 && (
-            <Badge variant="destructive" className="text-[10px]">
-              {filteredTasks.filter(t => getTrafficLightColor(t) === 'red').length} need attention
-            </Badge>
-          )}
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">
+              {filteredTasks.length} task{filteredTasks.length !== 1 ? 's' : ''}
+              {filteredTasks.filter(t => getTrafficLightColor(t) === 'red').length > 0 && (
+                <span className="text-red-500 ml-2">
+                  {filteredTasks.filter(t => getTrafficLightColor(t) === 'red').length} urgent
+                </span>
+              )}
+            </p>
+            <Select value={sort} onValueChange={(v) => v && setSort(v as SortType)}>
+              <SelectTrigger className="w-[100px] h-7 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="deadline">Deadline</SelectItem>
+                <SelectItem value="priority">Priority</SelectItem>
+                <SelectItem value="status">Progress</SelectItem>
+                <SelectItem value="created">Newest</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* Task Grid - responsive */}
