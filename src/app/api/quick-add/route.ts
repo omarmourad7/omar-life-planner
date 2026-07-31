@@ -30,6 +30,11 @@ export async function GET(request: NextRequest) {
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://omar-life-planner.vercel.app';
 
+    // Handle arrays (batch add)
+    if (Array.isArray(parsedData)) {
+      return await handleBatch(parsedData, baseUrl);
+    }
+
     // Route based on type field
     if (parsedData.type === 'transaction') {
       return await handleTransaction(parsedData, baseUrl);
@@ -40,6 +45,76 @@ export async function GET(request: NextRequest) {
     console.error('Quick-add error:', error);
     return NextResponse.json({ error: 'Invalid data' }, { status: 400 });
   }
+}
+
+async function handleBatch(items: Record<string, unknown>[], baseUrl: string) {
+  const now = new Date().toISOString();
+  let tasksAdded = 0;
+  let txnsAdded = 0;
+
+  // Separate into tasks and transactions
+  const taskItems = items.filter(i => i.type !== 'transaction');
+  const txnItems = items.filter(i => i.type === 'transaction');
+
+  // Batch add tasks
+  if (taskItems.length > 0) {
+    const tasksData = await getTasks();
+    for (const taskData of taskItems) {
+      if (!taskData.title) continue;
+      const newTask: Task = {
+        id: uuidv4(),
+        title: taskData.title as string,
+        description: (taskData.description as string) || '',
+        deadline: (taskData.deadline as string) || null,
+        priority: (taskData.priority as 'high' | 'medium' | 'low') || 'medium',
+        categoryId: (taskData.categoryId as string) || 'personal',
+        status: (taskData.status as number) ?? 0,
+        notifications: (taskData.notifications as Task['notifications']) || { ...DEFAULT_NOTIFICATIONS },
+        calendarEventId: null,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      if (newTask.deadline && process.env.GOOGLE_REFRESH_TOKEN) {
+        const eventId = await createCalendarEvent(newTask);
+        if (eventId) newTask.calendarEventId = eventId;
+      }
+
+      tasksData.tasks.push(newTask);
+      tasksAdded++;
+    }
+    await saveTasks(tasksData);
+  }
+
+  // Batch add transactions
+  if (txnItems.length > 0) {
+    const financialData = await getFinancialData();
+    for (const txnData of txnItems) {
+      if (!txnData.amount || !txnData.description) continue;
+      const amount = Math.abs(Number(txnData.amount));
+      const newTransaction: Transaction = {
+        id: uuidv4(),
+        amount,
+        currency: (txnData.currency as string) || 'NZD',
+        amountNZD: Math.abs(Number(txnData.amountNZD || txnData.amount)),
+        description: txnData.description as string,
+        categoryId: (txnData.categoryId as string) || 'other',
+        date: (txnData.date as string) || now.split('T')[0],
+        isSubscription: (txnData.isSubscription as boolean) || false,
+        subscriptionFrequency: txnData.subscriptionFrequency as Transaction['subscriptionFrequency'],
+        createdAt: now,
+      };
+      financialData.transactions.push(newTransaction);
+      txnsAdded++;
+    }
+    await saveFinancialData(financialData);
+  }
+
+  // Redirect based on what was added
+  if (txnsAdded > 0 && tasksAdded === 0) {
+    return NextResponse.redirect(`${baseUrl}/money?added_batch=${txnsAdded}`);
+  }
+  return NextResponse.redirect(`${baseUrl}/?added_batch=${tasksAdded}${txnsAdded > 0 ? `&txns=${txnsAdded}` : ''}`);
 }
 
 async function handleTask(taskData: Record<string, unknown>, baseUrl: string) {

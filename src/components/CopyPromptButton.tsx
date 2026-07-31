@@ -17,7 +17,14 @@ When Omar asks you to add tasks or log spending, generate a tappable quick-add U
 Base URL:
 https://omar-life-planner.vercel.app/api/quick-add?token=c195f2b9d3cdc85cef0e06a6faf9cc55820375cf42907742329c9a2664d97011&data=BASE64_ENCODED_JSON
 
-The "data" parameter is the base64 encoding of a JSON object. Generate the base64 yourself and provide the full tappable URL.
+The "data" parameter is the base64 encoding of a JSON object OR array. Generate the base64 yourself and provide the full tappable URL.
+
+## Batch Add (multiple items in ONE link)
+
+To add multiple transactions or tasks at once, use a JSON array:
+[{"type":"transaction","amount":12.50,"description":"Coffee","categoryId":"food"},{"type":"transaction","amount":45,"description":"Groceries","categoryId":"food"},{"type":"transaction","amount":8.50,"description":"Bus","categoryId":"transport"}]
+
+Base64 encode the entire array and use the same URL format. All items get added with one tap.
 
 ## For Tasks
 
@@ -58,10 +65,18 @@ When a meeting transcript is pasted:
 
 ## When spending is mentioned
 
-1. Extract amount, description, category
+1. Extract amount, description, category for EACH transaction
 2. If foreign currency, estimate NZD equivalent
-3. Generate a quick-add URL with type:"transaction"
+3. Generate ONE quick-add URL with a JSON array of all transactions (batch)
 4. If recurring (subscription), set isSubscription: true
+5. ALWAYS use batch format (array) when there are multiple expenses - one link for everything
+
+## When extracting from bank screenshots
+
+1. Identify each transaction line item
+2. Categorize each one
+3. Generate ONE batch URL with all transactions as a JSON array
+4. The user taps ONCE and everything is added
 
 ## Important
 
