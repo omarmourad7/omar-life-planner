@@ -142,6 +142,15 @@ export default function MoneyPage() {
     if (res.ok) await fetchData();
   };
 
+  const updateTransaction = async (id: string, updates: Partial<Transaction>) => {
+    const res = await fetch('/api/finance/transactions', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ...updates }),
+    });
+    if (res.ok) await fetchData();
+  };
+
   const saveBudget = async (budgetUpdate: Partial<Budget> & { weekOverride?: { week: string; amount: number | null } }) => {
     const res = await fetch('/api/finance/budget', {
       method: 'PUT',
@@ -294,6 +303,7 @@ export default function MoneyPage() {
                 transactions={recentTransactions}
                 categories={categories}
                 onDelete={deleteTransaction}
+                onUpdate={updateTransaction}
               />
             </div>
           </div>

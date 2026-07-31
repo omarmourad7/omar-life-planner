@@ -93,6 +93,41 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// PUT /api/finance/transactions - Update a transaction (e.g. change category)
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { id, categoryId, description, amount, amountNZD, date, isSubscription, subscriptionFrequency } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: 'Transaction ID is required' }, { status: 400 });
+    }
+
+    const data = await getFinancialData();
+    const txnIndex = data.transactions.findIndex(t => t.id === id);
+
+    if (txnIndex === -1) {
+      return NextResponse.json({ error: 'Transaction not found' }, { status: 404 });
+    }
+
+    // Update only the fields that were provided
+    if (categoryId !== undefined) data.transactions[txnIndex].categoryId = categoryId;
+    if (description !== undefined) data.transactions[txnIndex].description = description;
+    if (amount !== undefined) data.transactions[txnIndex].amount = Math.abs(Number(amount));
+    if (amountNZD !== undefined) data.transactions[txnIndex].amountNZD = Math.abs(Number(amountNZD));
+    if (date !== undefined) data.transactions[txnIndex].date = date;
+    if (isSubscription !== undefined) data.transactions[txnIndex].isSubscription = isSubscription;
+    if (subscriptionFrequency !== undefined) data.transactions[txnIndex].subscriptionFrequency = subscriptionFrequency;
+
+    await saveFinancialData(data);
+
+    return NextResponse.json({ transaction: data.transactions[txnIndex], success: true });
+  } catch (error) {
+    console.error('Failed to update transaction:', error);
+    return NextResponse.json({ error: 'Failed to update transaction' }, { status: 500 });
+  }
+}
+
 // DELETE /api/finance/transactions - Delete a transaction by id
 export async function DELETE(request: NextRequest) {
   try {
