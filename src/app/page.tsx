@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Task, Category, getTrafficLightColor } from '@/lib/types';
 import TaskForm from '@/components/TaskForm';
 import TaskCard from '@/components/TaskCard';
@@ -11,8 +11,16 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 
 type SortType = 'deadline' | 'priority' | 'status' | 'created';
+
+interface FilterTab {
+  id: string;
+  label: string;
+  color: string;
+}
 
 export default function Dashboard() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -20,9 +28,20 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState('active'); // Default to active
   const [sort, setSort] = useState<SortType>('deadline');
   const [successMessage, setSuccessMessage] = useState('');
+
+  // Multi-select state
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBulkDeadline, setShowBulkDeadline] = useState(false);
+  const [bulkDeadline, setBulkDeadline] = useState('');
+
+  // Draggable tabs state
+  const [tabOrder, setTabOrder] = useState<string[]>([]);
+  const dragItem = useRef<number | null>(null);
+  const dragOverItem = useRef<number | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -52,6 +71,41 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Initialize tab order from localStorage or default
+  useEffect(() => {
+    if (categories.length > 0) {
+      const saved = localStorage.getItem('tabOrder');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved) as string[];
+          // Ensure all current categories are included
+          const allIds = ['active', 'done', ...categories.map(c => c.id)];
+          const validSaved = parsed.filter(id => allIds.includes(id));
+          const missing = allIds.filter(id => !validSaved.includes(id));
+          setTabOrder([...validSaved, ...missing]);
+        } catch {
+          setTabOrder(['active', 'done', ...categories.map(c => c.id)]);
+        }
+      } else {
+        setTabOrder(['active', 'done', ...categories.map(c => c.id)]);
+      }
+    }
+  }, [categories]);
+
+  // Save tab order
+  useEffect(() => {
+    if (tabOrder.length > 0) {
+      localStorage.setItem('tabOrder', JSON.stringify(tabOrder));
+    }
+  }, [tabOrder]);
+
+  // Default to leftmost tab on load
+  useEffect(() => {
+    if (tabOrder.length > 0 && activeTab === 'active') {
+      setActiveTab(tabOrder[0]);
+    }
+  }, [tabOrder]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const addTask = async (taskData: Partial<Task>) => {
     const res = await fetch('/api/tasks', {
@@ -85,6 +139,37 @@ export default function Dashboard() {
       body: JSON.stringify({ status }),
     });
     if (res.ok) { await fetchData(); }
+  };
+
+  // Bulk update deadline
+  const bulkUpdateDeadline = async () => {
+    if (!bulkDeadline || selectedIds.size === 0) return;
+    const deadline = new Date(bulkDeadline).toISOString();
+    for (const id of selectedIds) {
+      await fetch(`/api/tasks/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deadline }),
+      });
+    }
+    await fetchData();
+    setSelectedIds(new Set());
+    setSelectMode(false);
+    setShowBulkDeadline(false);
+    setBulkDeadline('');
+  };
+
+  const toggleSelect = (taskId: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    setSelectedIds(new Set(filteredTasks.map(t => t.id)));
   };
 
   const addCategory = async (catData: Partial<Category>) => {
@@ -122,13 +207,41 @@ export default function Dashboard() {
     await fetchData();
   };
 
+  // Drag handlers for tabs
+  const handleDragStart = (index: number) => {
+    dragItem.current = index;
+  };
+
+  const handleDragEnter = (index: number) => {
+    dragOverItem.current = index;
+  };
+
+  const handleDragEnd = () => {
+    if (dragItem.current === null || dragOverItem.current === null) return;
+    const reordered = [...tabOrder];
+    const [removed] = reordered.splice(dragItem.current, 1);
+    reordered.splice(dragOverItem.current, 0, removed);
+    setTabOrder(reordered);
+    dragItem.current = null;
+    dragOverItem.current = null;
+  };
+
+  // Build tabs from order
+  const tabs: FilterTab[] = tabOrder.map(id => {
+    if (id === 'active') return { id: 'active', label: 'Active', color: '' };
+    if (id === 'done') return { id: 'done', label: 'Done', color: '' };
+    const cat = categories.find(c => c.id === id);
+    if (cat) return { id: cat.id, label: cat.name, color: cat.color };
+    return null;
+  }).filter(Boolean) as FilterTab[];
+
   // Filter and sort
   const filteredTasks = tasks
     .filter((task) => {
-      if (activeTab === 'all') return true;
       if (activeTab === 'active') return task.status < 10;
       if (activeTab === 'done') return task.status >= 10;
-      return task.categoryId === activeTab;
+      // Category filter - only show active tasks in that category
+      return task.categoryId === activeTab && task.status < 10;
     })
     .sort((a, b) => {
       switch (sort) {
@@ -165,14 +278,29 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header - Mobile friendly */}
+      {/* Header */}
       <header className="sticky top-[49px] z-40 bg-background/80 backdrop-blur-lg border-b">
         <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold tracking-tight">Tasks</h1>
-            <p className="text-[11px] text-muted-foreground hidden sm:block">Tasks & deadlines</p>
           </div>
           <div className="flex items-center gap-2">
+            {/* Multi-select toggle */}
+            <Button
+              variant={selectMode ? 'default' : 'outline'}
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => {
+                setSelectMode(!selectMode);
+                if (selectMode) setSelectedIds(new Set());
+              }}
+              title="Select multiple"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
+                <path d="M3.5 2A1.5 1.5 0 0 0 2 3.5v9A1.5 1.5 0 0 0 3.5 14h9a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 12.5 2h-9Zm3.667 5.854L5.354 6.04a.5.5 0 0 0-.708.707l2.167 2.167a.5.5 0 0 0 .708 0L11.354 5.08a.5.5 0 0 0-.708-.707L7.167 7.854Z"/>
+              </svg>
+            </Button>
+
             {/* Settings Sheet */}
             <Sheet>
               <SheetTrigger className="inline-flex items-center justify-center rounded-md border border-input bg-background h-8 w-8 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground">
@@ -232,20 +360,46 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* Filter + Sort - stacked on mobile */}
+        {/* Multi-select bar */}
+        {selectMode && (
+          <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+            <span className="text-sm font-medium">{selectedIds.size} selected</span>
+            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={selectAll}>
+              Select All
+            </Button>
+            <Button
+              size="sm"
+              className="h-7 text-xs ml-auto"
+              disabled={selectedIds.size === 0}
+              onClick={() => setShowBulkDeadline(true)}
+            >
+              Set Deadline
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => { setSelectMode(false); setSelectedIds(new Set()); }}
+            >
+              Cancel
+            </Button>
+          </div>
+        )}
+
+        {/* Filter tabs - draggable */}
         <div className="space-y-3">
           <div className="overflow-x-auto -mx-3 px-3 pb-1">
             <div className="flex gap-2 min-w-max">
-              {[
-                { id: 'all', label: 'All', color: '' },
-                { id: 'active', label: 'Active', color: '' },
-                { id: 'done', label: 'Done', color: '' },
-                ...categories.map(cat => ({ id: cat.id, label: cat.name, color: cat.color })),
-              ].map((tab) => (
+              {tabs.map((tab, index) => (
                 <button
                   key={tab.id}
+                  draggable
+                  onDragStart={() => handleDragStart(index)}
+                  onDragEnter={() => handleDragEnter(index)}
+                  onDragEnd={handleDragEnd}
+                  onDragOver={(e) => e.preventDefault()}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
+                  className={`flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap select-none ${
                     activeTab === tab.id
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-muted text-muted-foreground hover:bg-accent'
@@ -283,30 +437,40 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Task Grid - responsive */}
+        {/* Task Grid */}
         <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {filteredTasks.map((task) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              category={categories.find((c) => c.id === task.categoryId)}
-              onEdit={setEditingTask}
-              onDelete={deleteTask}
-              onStatusChange={updateTaskStatus}
-            />
+            <div key={task.id} className="relative">
+              {selectMode && (
+                <div className="absolute top-2 left-2 z-10">
+                  <Checkbox
+                    checked={selectedIds.has(task.id)}
+                    onCheckedChange={() => toggleSelect(task.id)}
+                    className="h-5 w-5 bg-background border-2"
+                  />
+                </div>
+              )}
+              <div className={selectMode && selectedIds.has(task.id) ? 'ring-2 ring-primary rounded-lg' : ''}>
+                <TaskCard
+                  task={task}
+                  category={categories.find((c) => c.id === task.categoryId)}
+                  onEdit={selectMode ? () => toggleSelect(task.id) : setEditingTask}
+                  onDelete={deleteTask}
+                  onStatusChange={updateTaskStatus}
+                />
+              </div>
+            </div>
           ))}
         </div>
 
         {filteredTasks.length === 0 && (
           <div className="text-center py-16">
-            <div className="text-4xl mb-3 opacity-50">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="w-12 h-12 mx-auto text-muted-foreground">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25Z" />
-              </svg>
-            </div>
-            <p className="text-muted-foreground text-sm">No tasks yet</p>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="w-12 h-12 mx-auto text-muted-foreground mb-3">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25Z" />
+            </svg>
+            <p className="text-muted-foreground text-sm">No tasks here</p>
             <Button variant="outline" size="sm" className="mt-3" onClick={() => setShowAddForm(true)}>
-              Add your first task
+              Add a task
             </Button>
           </div>
         )}
@@ -336,6 +500,30 @@ export default function Dashboard() {
               onCancel={() => setEditingTask(null)}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Deadline Dialog */}
+      <Dialog open={showBulkDeadline} onOpenChange={setShowBulkDeadline}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Set Deadline for {selectedIds.size} tasks</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <Input
+              type="datetime-local"
+              value={bulkDeadline}
+              onChange={(e) => setBulkDeadline(e.target.value)}
+            />
+            <div className="flex gap-2">
+              <Button onClick={bulkUpdateDeadline} disabled={!bulkDeadline} className="flex-1">
+                Apply
+              </Button>
+              <Button variant="outline" onClick={() => setShowBulkDeadline(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
