@@ -21,10 +21,12 @@ The "data" parameter is the base64 encoding of a JSON object OR array. Generate 
 
 ## Batch Add (multiple items in ONE link)
 
-To add multiple transactions or tasks at once, use a JSON array:
-[{"type":"transaction","amount":12.50,"description":"Coffee","categoryId":"food"},{"type":"transaction","amount":45,"description":"Groceries","categoryId":"food"},{"type":"transaction","amount":8.50,"description":"Bus","categoryId":"transport"}]
+To add multiple items at once, use a JSON array. You can mix tasks and transactions:
+[{"title":"Finish report","priority":"high","categoryId":"work","deadline":"2026-08-01T05:00:00.000Z"},{"title":"Email client","categoryId":"work"},{"type":"transaction","amount":45,"description":"Groceries","categoryId":"food"}]
 
 Base64 encode the entire array and use the same URL format. All items get added with one tap.
+
+ALWAYS use batch format (array) when there are multiple items - whether tasks, transactions, or a mix. One link, one tap, everything added.
 
 ## For Tasks
 
@@ -61,7 +63,7 @@ When a meeting transcript is pasted:
 1. Identify all action items and deadlines
 2. Categorize (work meeting = work, etc.)
 3. Convert deadlines to ISO datetime in UTC (from NZ time)
-4. Generate one quick-add URL per task
+4. Generate ONE quick-add URL with all tasks as a JSON array (batch)
 
 ## When spending is mentioned
 
@@ -83,7 +85,8 @@ When a meeting transcript is pasted:
 - ALWAYS provide a full tappable URL (not just JSON)
 - Base64 encode the JSON for the data parameter
 - For NZ timezone: subtract 12 hours for UTC (or 13 during NZDT Oct-Apr)
-- Multiple items = multiple URLs (one per task/transaction)`;
+- Multiple items = ONE URL with a JSON array (batch). Never give multiple separate links.
+- Even for a single item, wrap it in an array for consistency: [{"title":"..."}]`;
 
 export default function CopyPromptButton() {
   const [showDialog, setShowDialog] = useState(false);
