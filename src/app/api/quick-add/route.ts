@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const token = searchParams.get('token');
   const data = searchParams.get('data');
+  const jsonParam = searchParams.get('json');
 
   // Verify secret token
   const secretToken = process.env.QUICK_ADD_SECRET;
@@ -19,14 +20,25 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   }
 
-  if (!data) {
-    return NextResponse.json({ error: 'No data provided' }, { status: 400 });
+  if (!data && !jsonParam) {
+    return NextResponse.json({ error: 'No data provided. Use ?data=BASE64 or ?json=URL_ENCODED_JSON' }, { status: 400 });
   }
 
   try {
-    // Decode base64 JSON
-    const decodedData = Buffer.from(data, 'base64').toString('utf-8');
-    const parsedData = JSON.parse(decodedData);
+    let parsedData: unknown;
+
+    if (jsonParam) {
+      // Direct JSON parameter (URL-encoded) - more reliable than base64
+      parsedData = JSON.parse(jsonParam);
+    } else if (data) {
+      // Base64 encoded - clean up common corruption
+      // Strip any non-base64 characters (fixes Cyrillic lookalike chars from Claude)
+      const cleanedBase64 = data.replace(/[^A-Za-z0-9+/=]/g, '');
+      // Fix padding
+      const padded = cleanedBase64 + '='.repeat((4 - cleanedBase64.length % 4) % 4);
+      const decodedData = Buffer.from(padded, 'base64').toString('utf-8');
+      parsedData = JSON.parse(decodedData);
+    }
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://omar-life-planner.vercel.app';
 
@@ -36,14 +48,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Route based on type field
-    if (parsedData.type === 'transaction') {
-      return await handleTransaction(parsedData, baseUrl);
+    if (parsedData && typeof parsedData === 'object' && 'type' in parsedData && (parsedData as Record<string, unknown>).type === 'transaction') {
+      return await handleTransaction(parsedData as Record<string, unknown>, baseUrl);
     } else {
-      return await handleTask(parsedData, baseUrl);
+      return await handleTask(parsedData as Record<string, unknown>, baseUrl);
     }
   } catch (error) {
     console.error('Quick-add error:', error);
-    return NextResponse.json({ error: 'Invalid data' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid data. If base64 is failing, try ?json=URL_ENCODED_JSON instead.' }, { status: 400 });
   }
 }
 

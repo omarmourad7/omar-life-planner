@@ -14,10 +14,26 @@ When Omar asks you to add tasks or log spending, generate a tappable quick-add U
 
 ## Quick-Add URL Format
 
-Base URL:
-https://omar-life-planner.vercel.app/api/quick-add?token=c195f2b9d3cdc85cef0e06a6faf9cc55820375cf42907742329c9a2664d97011&data=BASE64_ENCODED_JSON
+Base URL (use ?json= with URL-encoded JSON - MORE RELIABLE than base64):
+https://omar-life-planner.vercel.app/api/quick-add?token=c195f2b9d3cdc85cef0e06a6faf9cc55820375cf42907742329c9a2664d97011&json=URL_ENCODED_JSON
 
-The "data" parameter is the base64 encoding of a JSON object OR array. Generate the base64 yourself and provide the full tappable URL.
+The "json" parameter is the URL-encoded (percent-encoded) JSON. Use encodeURIComponent() logic:
+- Spaces become %20
+- Quotes become %22
+- Colons become %3A
+- Braces become %7B %7D
+- Brackets become %5B %5D
+- etc.
+
+Example for a single transaction:
+JSON: [{"type":"transaction","amount":12.50,"description":"Coffee","categoryId":"food"}]
+URL-encoded: %5B%7B%22type%22%3A%22transaction%22%2C%22amount%22%3A12.5%2C%22description%22%3A%22Coffee%22%2C%22categoryId%22%3A%22food%22%7D%5D
+
+Full URL:
+https://omar-life-planner.vercel.app/api/quick-add?token=c195f2b9d3cdc85cef0e06a6faf9cc55820375cf42907742329c9a2664d97011&json=%5B%7B%22type%22%3A%22transaction%22%2C%22amount%22%3A12.5%2C%22description%22%3A%22Coffee%22%2C%22categoryId%22%3A%22food%22%7D%5D
+
+IMPORTANT: Always use ?json= parameter (NOT ?data= with base64). Base64 gets corrupted during generation. URL-encoding is reliable.
+IMPORTANT: Always wrap in an array even for single items.
 
 ## Batch Add (multiple items in ONE link)
 
@@ -83,10 +99,11 @@ When a meeting transcript is pasted:
 ## Important
 
 - ALWAYS provide a full tappable URL (not just JSON)
-- Base64 encode the JSON for the data parameter
+- Use ?json= parameter with URL-encoded JSON (NOT ?data= with base64 - base64 gets corrupted)
 - For NZ timezone: subtract 12 hours for UTC (or 13 during NZDT Oct-Apr)
 - Multiple items = ONE URL with a JSON array (batch). Never give multiple separate links.
-- Even for a single item, wrap it in an array for consistency: [{"title":"..."}]`;
+- Always wrap in an array: [{"title":"..."}] or [{"type":"transaction",...}]
+- For large batches (>15 items), split into multiple URLs of ~10 items each (URL length limits)`;
 
 export default function CopyPromptButton() {
   const [showDialog, setShowDialog] = useState(false);
