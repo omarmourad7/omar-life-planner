@@ -10,8 +10,9 @@ interface CircularBudgetProps {
 }
 
 export default function CircularBudget({ spent, budget, label, size = 140 }: CircularBudgetProps) {
-  const remaining = Math.max(0, budget - spent);
+  const remaining = budget - spent; // Can go negative
   const percentage = budget > 0 ? Math.min(spent / budget, 1) : 0;
+  const isOverBudget = remaining < 0;
 
   const { strokeDasharray, strokeDashoffset, color } = useMemo(() => {
     const radius = (size - 12) / 2;
@@ -20,7 +21,9 @@ export default function CircularBudget({ spent, budget, label, size = 140 }: Cir
 
     // Color transitions: green -> yellow -> orange -> red
     let ringColor: string;
-    if (percentage <= 0.5) {
+    if (isOverBudget) {
+      ringColor = '#DC2626'; // dark red when over
+    } else if (percentage <= 0.5) {
       ringColor = '#22C55E'; // green
     } else if (percentage <= 0.7) {
       ringColor = '#EAB308'; // yellow
@@ -32,10 +35,10 @@ export default function CircularBudget({ spent, budget, label, size = 140 }: Cir
 
     return {
       strokeDasharray: `${circumference} ${circumference}`,
-      strokeDashoffset: offset,
+      strokeDashoffset: isOverBudget ? 0 : offset, // Full ring when over budget
       color: ringColor,
     };
-  }, [percentage, size]);
+  }, [percentage, size, isOverBudget]);
 
   const radius = (size - 12) / 2;
   const center = size / 2;
@@ -72,10 +75,12 @@ export default function CircularBudget({ spent, budget, label, size = 140 }: Cir
         </svg>
         {/* Center text */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-xl font-bold tracking-tight">
-            ${remaining.toFixed(0)}
+          <span className={`text-xl font-bold tracking-tight ${isOverBudget ? 'text-red-500' : ''}`}>
+            {isOverBudget ? '-' : ''}${Math.abs(remaining).toFixed(0)}
           </span>
-          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">left</span>
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+            {isOverBudget ? 'over' : 'left'}
+          </span>
         </div>
       </div>
       <span className="text-xs text-muted-foreground font-medium">{label}</span>
