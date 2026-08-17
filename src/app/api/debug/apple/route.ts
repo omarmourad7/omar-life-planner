@@ -42,15 +42,16 @@ export async function GET() {
     // For each TODO calendar, try to fetch existing objects
     const existingObjects: Record<string, unknown[]> = {};
     for (const cal of todoCalendars.slice(0, 2)) { // Limit to first 2
+      const calKey = String(cal.displayName || cal.url);
       try {
         const objects = await client.fetchCalendarObjects({ calendar: cal });
-        existingObjects[cal.displayName || cal.url] = objects.map(obj => ({
+        existingObjects[calKey] = objects.map(obj => ({
           url: obj.url,
           etag: obj.etag,
           dataPreview: typeof obj.data === 'string' ? obj.data.substring(0, 500) : 'no data',
         }));
       } catch (e) {
-        existingObjects[cal.displayName || cal.url] = [{ error: String(e) }];
+        existingObjects[calKey] = [{ error: String(e) }];
       }
     }
 
