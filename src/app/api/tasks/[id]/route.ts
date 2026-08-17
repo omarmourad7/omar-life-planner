@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTasks, saveTasks } from '@/lib/github-storage';
 import { updateCalendarEvent, deleteCalendarEvent, createCalendarEvent } from '@/lib/google-calendar';
+import { createReminder, updateReminder, deleteReminder } from '@/lib/apple-reminders';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -70,6 +71,31 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       }
     }
 
+    // Handle Apple Reminders updates
+    if (process.env.APPLE_ICLOUD_EMAIL) {
+      const deadlineChanged = existingTask.deadline !== updatedTask.deadline;
+      const notificationsChanged = JSON.stringify(existingTask.notifications) !== JSON.stringify(updatedTask.notifications);
+      const statusChanged = existingTask.status !== updatedTask.status;
+      const titleChanged = existingTask.title !== updatedTask.title;
+
+      if (updatedTask.deadline) {
+        if (existingTask.appleReminderId && (deadlineChanged || notificationsChanged || statusChanged || titleChanged)) {
+          // Update existing reminder
+          await updateReminder(updatedTask);
+        } else if (!existingTask.appleReminderId) {
+          // Create new reminder
+          const reminderId = await createReminder(updatedTask);
+          if (reminderId) {
+            updatedTask.appleReminderId = reminderId;
+          }
+        }
+      } else if (existingTask.appleReminderId && !updatedTask.deadline) {
+        // Deadline removed, delete reminder
+        await deleteReminder(existingTask.appleReminderId);
+        updatedTask.appleReminderId = null;
+      }
+    }
+
     data.tasks[taskIndex] = updatedTask;
     await saveTasks(data);
 
@@ -95,6 +121,11 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     // Delete calendar event if exists
     if (task.calendarEventId && process.env.GOOGLE_REFRESH_TOKEN) {
       await deleteCalendarEvent(task.calendarEventId);
+    }
+
+    // Delete Apple Reminder if exists
+    if (task.appleReminderId && process.env.APPLE_ICLOUD_EMAIL) {
+      await deleteReminder(task.appleReminderId);
     }
 
     data.tasks.splice(taskIndex, 1);

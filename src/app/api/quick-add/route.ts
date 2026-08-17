@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getTasks, saveTasks, getFinancialData, saveFinancialData } from '@/lib/github-storage';
 import { Task, Transaction, DEFAULT_NOTIFICATIONS } from '@/lib/types';
 import { createCalendarEvent } from '@/lib/google-calendar';
+import { createReminder } from '@/lib/apple-reminders';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -83,6 +84,7 @@ async function handleBatch(items: Record<string, unknown>[], baseUrl: string) {
         status: (taskData.status as number) ?? 0,
         notifications: (taskData.notifications as Task['notifications']) || { ...DEFAULT_NOTIFICATIONS },
         calendarEventId: null,
+        appleReminderId: null,
         createdAt: now,
         updatedAt: now,
       };
@@ -90,6 +92,11 @@ async function handleBatch(items: Record<string, unknown>[], baseUrl: string) {
       if (newTask.deadline && process.env.GOOGLE_REFRESH_TOKEN) {
         const eventId = await createCalendarEvent(newTask);
         if (eventId) newTask.calendarEventId = eventId;
+      }
+
+      if (newTask.deadline && process.env.APPLE_ICLOUD_EMAIL) {
+        const reminderId = await createReminder(newTask);
+        if (reminderId) newTask.appleReminderId = reminderId;
       }
 
       tasksData.tasks.push(newTask);
@@ -145,6 +152,7 @@ async function handleTask(taskData: Record<string, unknown>, baseUrl: string) {
     status: (taskData.status as number) ?? 0,
     notifications: (taskData.notifications as Task['notifications']) || { ...DEFAULT_NOTIFICATIONS },
     calendarEventId: null,
+    appleReminderId: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -154,6 +162,14 @@ async function handleTask(taskData: Record<string, unknown>, baseUrl: string) {
     const eventId = await createCalendarEvent(newTask);
     if (eventId) {
       newTask.calendarEventId = eventId;
+    }
+  }
+
+  // Create Apple Reminder if deadline is set
+  if (newTask.deadline && process.env.APPLE_ICLOUD_EMAIL) {
+    const reminderId = await createReminder(newTask);
+    if (reminderId) {
+      newTask.appleReminderId = reminderId;
     }
   }
 
@@ -253,6 +269,7 @@ export async function POST(request: NextRequest) {
       status: body.status ?? 0,
       notifications: body.notifications || { ...DEFAULT_NOTIFICATIONS },
       calendarEventId: null,
+      appleReminderId: null,
       createdAt: now,
       updatedAt: now,
     };
@@ -262,6 +279,14 @@ export async function POST(request: NextRequest) {
       const eventId = await createCalendarEvent(newTask);
       if (eventId) {
         newTask.calendarEventId = eventId;
+      }
+    }
+
+    // Create Apple Reminder if deadline is set
+    if (newTask.deadline && process.env.APPLE_ICLOUD_EMAIL) {
+      const reminderId = await createReminder(newTask);
+      if (reminderId) {
+        newTask.appleReminderId = reminderId;
       }
     }
 

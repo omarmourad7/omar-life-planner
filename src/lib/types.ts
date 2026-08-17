@@ -9,7 +9,8 @@ export interface Task {
   categoryId: string;
   status: number; // 1-10
   notifications: NotificationSettings;
-  calendarEventId: string | null;
+  calendarEventId: string | null;      // Google Calendar event ID
+  appleReminderId: string | null;      // Apple Reminders UID (iCloud CalDAV)
   createdAt: string;
   updatedAt: string;
 }

@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getTasks, saveTasks } from '@/lib/github-storage';
 import { Task, DEFAULT_NOTIFICATIONS } from '@/lib/types';
 import { createCalendarEvent } from '@/lib/google-calendar';
+import { createReminder } from '@/lib/apple-reminders';
 
 export async function GET() {
   try {
@@ -37,6 +38,7 @@ export async function POST(request: NextRequest) {
       status: body.status ?? 0,
       notifications: body.notifications || { ...DEFAULT_NOTIFICATIONS },
       calendarEventId: null,
+      appleReminderId: null,
       createdAt: now,
       updatedAt: now,
     };
@@ -46,6 +48,14 @@ export async function POST(request: NextRequest) {
       const eventId = await createCalendarEvent(newTask);
       if (eventId) {
         newTask.calendarEventId = eventId;
+      }
+    }
+
+    // Create Apple Reminder if deadline is set
+    if (newTask.deadline && process.env.APPLE_ICLOUD_EMAIL) {
+      const reminderId = await createReminder(newTask);
+      if (reminderId) {
+        newTask.appleReminderId = reminderId;
       }
     }
 
